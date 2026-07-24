@@ -78,11 +78,12 @@
   #stage {
     width: 100%;
     max-width: 460px;
-    aspect-ratio: 1 / 1;
     position: relative;
     margin: 6px auto 4px;
     touch-action: manipulation;
   }
+  /* Force a square stage without relying on aspect-ratio (broader support). */
+  #stage::before { content: ""; display: block; padding-bottom: 100%; }
 
   .table {
     position: absolute;
