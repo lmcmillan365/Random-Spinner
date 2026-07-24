@@ -110,6 +110,28 @@
     pointer-events: none;
   }
 
+  /* Pie-slice sections — one per name, with divider perimeters */
+  #wedges {
+    position: absolute;
+    inset: 4%;
+    border-radius: 50%;
+    z-index: 1;
+    pointer-events: none;
+  }
+  #wedges svg { width: 100%; height: 100%; display: block; }
+  .wedge {
+    fill: rgba(255, 224, 168, 0.055);
+    transition: fill 0.35s ease;
+  }
+  .wedge.alt { fill: rgba(0, 0, 0, 0.16); }
+  .wedge.win { fill: rgba(255, 140, 45, 0.34); }
+  .divider {
+    stroke: rgba(255, 228, 186, 0.5);
+    stroke-width: 0.55;
+    stroke-linecap: round;
+  }
+  .section-ring { fill: none; stroke: rgba(255, 228, 186, 0.4); stroke-width: 0.8; }
+
   /* Seats / beer mats around the edge */
   .seat {
     position: absolute;
@@ -379,6 +401,7 @@
 
   <div id="stage">
     <div class="table" id="table"></div>
+    <div id="wedges"></div>
     <div id="seats"></div>
     <div id="bottleWrap"></div>
     <div class="pivot"></div>
@@ -441,6 +464,7 @@
 
   // ---------- Elements ----------
   var seatsEl   = document.getElementById("seats");
+  var wedgesEl  = document.getElementById("wedges");
   var bottleWrap= document.getElementById("bottleWrap");
   var resultEl  = document.getElementById("result");
   var statusEl  = document.getElementById("status");
@@ -480,6 +504,38 @@
   // ---------- Seat layout (auto-arrange around the circle) ----------
   function seatAngle(i, n) { return (360 / n) * i; }   // 0deg = top, clockwise
 
+  // Each name owns a pie slice centred on its seat angle. The slice for name i
+  // spans seatAngle(i) ± slice/2, so the divider lines sit at the mid-points.
+  function polar(cx, cy, r, angDeg) {
+    var t = angDeg * Math.PI / 180;
+    return (cx + r * Math.sin(t)).toFixed(3) + " " + (cy - r * Math.cos(t)).toFixed(3);
+  }
+
+  function renderWedges() {
+    var n = names.length;
+    var slice = 360 / n;
+    var cx = 50, cy = 50, r = 47, inner = 5.5;
+    var svg = ['<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'];
+    // filled slices (alternating shade so adjacent sections read distinctly)
+    for (var i = 0; i < n; i++) {
+      var a0 = (i - 0.5) * slice, a1 = (i + 0.5) * slice;
+      var large = (a1 - a0) > 180 ? 1 : 0;
+      var cls = "wedge" + (i % 2 ? " alt" : "") + (i === winnerIndex ? " win" : "");
+      svg.push('<path class="' + cls + '" data-index="' + i + '" d="M50 50 L' +
+        polar(cx, cy, r, a0) + ' A' + r + ' ' + r + ' 0 ' + large + ' 1 ' +
+        polar(cx, cy, r, a1) + ' Z"/>');
+    }
+    // divider spokes at the slice boundaries
+    for (var j = 0; j < n; j++) {
+      var b = (j + 0.5) * slice;
+      svg.push('<line class="divider" x1="' + polar(cx, cy, inner, b).replace(" ", '" y1="') +
+        '" x2="' + polar(cx, cy, r, b).replace(" ", '" y2="') + '"/>');
+    }
+    svg.push('<circle class="section-ring" cx="50" cy="50" r="' + r + '"/>');
+    svg.push('</svg>');
+    wedgesEl.innerHTML = svg.join("");
+  }
+
   function renderSeats() {
     seatsEl.innerHTML = "";
     var n = names.length;
@@ -500,6 +556,7 @@
       seat.appendChild(mat);
       seatsEl.appendChild(seat);
     });
+    renderWedges();
     positionSeats();
     countBadge.textContent = "(" + n + ")";
   }
@@ -609,20 +666,27 @@
   });
 
   // ---------- Result ----------
+  function clearWinHighlights() {
+    var w1 = seatsEl.querySelectorAll(".seat.win");
+    for (var i = 0; i < w1.length; i++) w1[i].classList.remove("win");
+    var w2 = wedgesEl.querySelectorAll(".wedge.win");
+    for (var j = 0; j < w2.length; j++) w2[j].classList.remove("win");
+  }
+
   function clearResult() {
     winnerIndex = -1;
     resultEl.textContent = "";
     resultEl.classList.remove("show");
-    var wins = seatsEl.querySelectorAll(".seat.win");
-    for (var i = 0; i < wins.length; i++) wins[i].classList.remove("win");
+    clearWinHighlights();
   }
 
   function showWinner(idx) {
     winnerIndex = idx;
-    var wins = seatsEl.querySelectorAll(".seat.win");
-    for (var i = 0; i < wins.length; i++) wins[i].classList.remove("win");
+    clearWinHighlights();
     var seat = seatsEl.children[idx];
     if (seat) seat.classList.add("win");
+    var wedge = wedgesEl.querySelector('.wedge[data-index="' + idx + '"]');
+    if (wedge) wedge.classList.add("win");
     resultEl.innerHTML = '🥃 <span class="name">' + escapeHtml(names[idx]) + '</span> is hosting!';
     resultEl.classList.remove("show");
     void resultEl.offsetWidth; // restart animation
@@ -644,9 +708,14 @@
 
     // Target absolute angle the bottle must point to (0deg = up), matching seat layout.
     var target = seatAngle(winner, n);
-    // Small jitter so it doesn't always stop dead-centre, but stays well inside the seat's slice.
+    // To-the-wire jeopardy: land anywhere inside the winner's slice — often right
+    // up against a divider — rather than dead-centre. Edge-biased so near-misses
+    // are common, but capped just short of the boundary so the cap always stays
+    // in the winning wedge (the highlighted section is never ambiguous).
     var slice = 360 / n;
-    var jitter = (Math.random() - 0.5) * slice * 0.5;
+    var u = Math.random() * 2 - 1;                       // [-1, 1]
+    var edgeBias = (u < 0 ? -1 : 1) * Math.pow(Math.abs(u), 0.65); // push toward edges
+    var jitter = edgeBias * (slice / 2) * 0.9;           // stay within 90% of half-slice
 
     var fullSpins = 5 + Math.floor(Math.random() * 4); // 5–8 turns
     var current = rotation;
