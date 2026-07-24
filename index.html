@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#2a160c" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Rum Club" />
+<title>Spiced Rum Club — Host Picker</title>
+<style>
+  /* ---------- Theme tokens: warm pub-at-night ---------- */
+  :root {
+    --bg-top: #3a2113;
+    --bg-bottom: #1a0d06;
+    --amber: #e8963a;
+    --amber-glow: #ffb24d;
+    --cream: #f3e3c3;
+    --wood-1: #6b3f22;
+    --wood-2: #4a2915;
+    --wood-3: #3a2011;
+    --wood-edge: #201007;
+    --red: #c9401f;
+    --text: #f6e9d2;
+    --text-dim: #c8a97e;
+    --seat-bg: #efdcae;
+    --seat-bg-2: #e3c98a;
+    --seat-ink: #3a2412;
+    --win-bg: #ffcf6e;
+    --win-ring: #ff6a2b;
+    --panel: rgba(28, 15, 8, 0.86);
+    --panel-line: rgba(233, 150, 58, 0.28);
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body { margin: 0; padding: 0; }
+
+  body {
+    min-height: 100vh;
+    min-height: 100dvh;
+    font-family: "Trebuchet MS", "Segoe UI", Verdana, system-ui, sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(120% 80% at 50% -10%, rgba(255, 178, 77, 0.22), transparent 55%),
+      linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+    background-attachment: fixed;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: env(safe-area-inset-top) 14px calc(env(safe-area-inset-bottom) + 14px);
+    overflow-x: hidden;
+  }
+
+  header {
+    text-align: center;
+    padding: 14px 6px 8px;
+    width: 100%;
+    max-width: 520px;
+  }
+  header .kicker {
+    font-size: 12px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--amber-glow);
+    opacity: 0.9;
+  }
+  header h1 {
+    margin: 2px 0 0;
+    font-size: 26px;
+    letter-spacing: 0.5px;
+    color: var(--cream);
+    text-shadow: 0 2px 0 rgba(0,0,0,0.4), 0 0 18px rgba(255,178,77,0.25);
+  }
+  header .sub { margin-top: 4px; font-size: 13px; color: var(--text-dim); }
+
+  /* ---------- The table ---------- */
+  #stage {
+    width: 100%;
+    max-width: 460px;
+    aspect-ratio: 1 / 1;
+    position: relative;
+    margin: 6px auto 4px;
+    touch-action: manipulation;
+  }
+
+  .table {
+    position: absolute;
+    inset: 4%;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 38% 30%, rgba(255,220,160,0.20), transparent 45%),
+      repeating-conic-gradient(from 0deg,
+        var(--wood-1) 0deg 7deg,
+        var(--wood-2) 7deg 14deg),
+      radial-gradient(circle at 50% 50%, var(--wood-1), var(--wood-3) 78%);
+    box-shadow:
+      inset 0 0 0 8px var(--wood-edge),
+      inset 0 0 44px rgba(0,0,0,0.55),
+      0 18px 40px rgba(0,0,0,0.55),
+      0 0 60px rgba(255,150,50,0.12);
+  }
+  .table::after {
+    content: "";
+    position: absolute;
+    inset: 12%;
+    border-radius: 50%;
+    background: radial-gradient(circle at 42% 34%, rgba(255,210,150,0.10), transparent 60%);
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.35);
+    pointer-events: none;
+  }
+
+  /* Seats / beer mats around the edge */
+  .seat {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0; height: 0;
+  }
+  .seat .mat {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    min-width: 62px;
+    max-width: 96px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    background: linear-gradient(160deg, var(--seat-bg), var(--seat-bg-2));
+    color: var(--seat-ink);
+    font-weight: 700;
+    font-size: 14px;
+    line-height: 1.1;
+    text-align: center;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.45), inset 0 0 0 2px rgba(255,255,255,0.35), inset 0 0 0 4px rgba(160,110,60,0.25);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: transform 0.25s ease, background 0.25s ease, box-shadow 0.25s ease, color 0.25s ease;
+  }
+  .seat.win .mat {
+    background: radial-gradient(circle at 50% 35%, var(--win-bg), #f0a640);
+    color: #3a1c06;
+    box-shadow: 0 0 0 3px var(--win-ring), 0 0 22px 4px rgba(255,140,50,0.75), 0 4px 10px rgba(0,0,0,0.5);
+    transform: translate(-50%, -50%) scale(1.14);
+    z-index: 5;
+  }
+
+  /* ---------- Bottle (Red Leg style, drawn in SVG) ---------- */
+  #bottleWrap {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 30%;
+    height: 30%;
+    transform: translate(-50%, -50%) rotate(0deg);
+    will-change: transform;
+    z-index: 4;
+    pointer-events: none;
+    filter: drop-shadow(0 6px 10px rgba(0,0,0,0.55));
+  }
+  #bottleWrap.spinning { }
+  #bottleWrap svg { width: 100%; height: 100%; display: block; }
+
+  /* pivot dot in the very centre */
+  .pivot {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 14px; height: 14px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, #2a1708, #000);
+    box-shadow: 0 0 0 3px rgba(255,190,110,0.35), inset 0 0 4px rgba(255,220,170,0.5);
+    z-index: 3;
+  }
+
+  /* ---------- Result banner ---------- */
+  #result {
+    width: 100%;
+    max-width: 460px;
+    min-height: 30px;
+    text-align: center;
+    font-size: 22px;
+    font-weight: 800;
+    padding: 4px 8px;
+    color: var(--cream);
+    text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    transition: opacity 0.3s ease;
+  }
+  #result.show { animation: pop 0.5s ease; }
+  #result .name { color: var(--amber-glow); }
+  @keyframes pop {
+    0% { transform: scale(0.7); opacity: 0; }
+    60% { transform: scale(1.08); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  #status { text-align:center; font-size:13px; color: var(--text-dim); min-height: 16px; }
+
+  /* ---------- Buttons ---------- */
+  .controls {
+    width: 100%;
+    max-width: 460px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 4px;
+  }
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    border-radius: 16px;
+    font-weight: 800;
+    transition: transform 0.08s ease, filter 0.15s ease, opacity 0.15s ease;
+    touch-action: manipulation;
+  }
+  button:active { transform: translateY(2px) scale(0.99); }
+  button:disabled { opacity: 0.5; cursor: default; }
+
+  #spinBtn {
+    padding: 20px;
+    font-size: 24px;
+    letter-spacing: 1px;
+    color: #3a1a05;
+    background: linear-gradient(180deg, var(--amber-glow), var(--amber) 55%, #cf7a24);
+    box-shadow: 0 6px 0 #8a4d16, 0 10px 22px rgba(0,0,0,0.5), inset 0 2px 0 rgba(255,255,255,0.4);
+    text-shadow: 0 1px 0 rgba(255,255,255,0.35);
+  }
+  #spinBtn:active { box-shadow: 0 2px 0 #8a4d16, 0 4px 10px rgba(0,0,0,0.5), inset 0 2px 0 rgba(255,255,255,0.4); }
+
+  .row2 { display: flex; gap: 10px; }
+  .btn-secondary {
+    flex: 1;
+    padding: 14px;
+    font-size: 15px;
+    color: var(--cream);
+    background: rgba(255,255,255,0.06);
+    box-shadow: inset 0 0 0 1.5px var(--panel-line);
+  }
+  .btn-secondary:active { background: rgba(255,255,255,0.12); }
+
+  /* ---------- Names panel ---------- */
+  details.panel {
+    width: 100%;
+    max-width: 460px;
+    margin-top: 12px;
+    background: var(--panel);
+    border-radius: 16px;
+    box-shadow: inset 0 0 0 1.5px var(--panel-line);
+    overflow: hidden;
+  }
+  details.panel > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 14px 16px;
+    font-weight: 700;
+    color: var(--cream);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  details.panel > summary::-webkit-details-marker { display: none; }
+  details.panel > summary .chev { transition: transform 0.2s ease; color: var(--amber-glow); }
+  details.panel[open] > summary .chev { transform: rotate(180deg); }
+  .panel-body { padding: 4px 14px 16px; }
+
+  .name-list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .name-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 6px 6px 6px 12px;
+  }
+  .name-item input.name-edit {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 8px 4px;
+    border-bottom: 1.5px dashed transparent;
+  }
+  .name-item input.name-edit:focus { outline: none; border-bottom-color: var(--panel-line); }
+  .del-btn {
+    width: 38px; height: 38px;
+    flex: 0 0 auto;
+    border-radius: 10px;
+    font-size: 18px;
+    color: #ffd9c9;
+    background: rgba(201,64,31,0.28);
+    box-shadow: inset 0 0 0 1.5px rgba(201,64,31,0.5);
+  }
+  .del-btn:active { background: rgba(201,64,31,0.5); }
+
+  .add-row { display: flex; gap: 8px; }
+  .add-row input {
+    flex: 1;
+    min-width: 0;
+    background: rgba(255,255,255,0.06);
+    border: none;
+    border-radius: 12px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 12px 14px;
+    box-shadow: inset 0 0 0 1.5px var(--panel-line);
+  }
+  .add-row input:focus { outline: none; box-shadow: inset 0 0 0 1.5px var(--amber); }
+  .add-row button {
+    flex: 0 0 auto;
+    padding: 0 18px;
+    font-size: 22px;
+    color: #3a1a05;
+    background: linear-gradient(180deg, var(--amber-glow), var(--amber));
+    box-shadow: inset 0 2px 0 rgba(255,255,255,0.4);
+  }
+
+  .panel-note { font-size: 12px; color: var(--text-dim); margin: 10px 2px 0; }
+
+  .opt-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 14px; padding-top: 12px;
+    border-top: 1px solid var(--panel-line);
+    font-size: 15px; color: var(--cream); font-weight: 700;
+  }
+  /* toggle */
+  .toggle { position: relative; width: 52px; height: 30px; flex: 0 0 auto; }
+  .toggle input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+  .toggle .track {
+    position: absolute; inset: 0; border-radius: 999px;
+    background: rgba(255,255,255,0.12);
+    box-shadow: inset 0 0 0 1.5px var(--panel-line);
+    transition: background 0.2s ease;
+  }
+  .toggle .knob {
+    position: absolute; top: 3px; left: 3px; width: 24px; height: 24px;
+    border-radius: 50%; background: var(--cream);
+    transition: transform 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+  .toggle input:checked + .track { background: linear-gradient(180deg, var(--amber-glow), var(--amber)); }
+  .toggle input:checked + .track + .knob { transform: translateX(22px); }
+
+  footer { margin-top: 14px; font-size: 11px; color: var(--text-dim); text-align: center; opacity: 0.7; padding-bottom: 6px; }
+
+  .toast {
+    position: fixed;
+    left: 50%; bottom: calc(env(safe-area-inset-bottom) + 18px);
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(20,10,4,0.95);
+    color: var(--cream);
+    padding: 12px 18px;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.6), inset 0 0 0 1.5px var(--panel-line);
+    font-size: 14px; font-weight: 700;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    z-index: 50;
+    max-width: 90vw; text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <header>
+    <div class="kicker">Spiced Rum Club</div>
+    <h1>🥃 Spin the Bottle</h1>
+    <div class="sub">Whoever the Red Leg points at is hosting.</div>
+  </header>
+
+  <div id="stage">
+    <div class="table" id="table"></div>
+    <div id="seats"></div>
+    <div id="bottleWrap"></div>
+    <div class="pivot"></div>
+  </div>
+
+  <div id="result" aria-live="polite"></div>
+  <div id="status"></div>
+
+  <div class="controls">
+    <button id="spinBtn">SPIN THE BOTTLE</button>
+    <div class="row2">
+      <button class="btn-secondary" id="againBtn">🔄 Spin again</button>
+      <button class="btn-secondary" id="clearBtn">✨ Clear result</button>
+    </div>
+  </div>
+
+  <details class="panel" id="namesPanel">
+    <summary>
+      <span>👥 Members <span id="countBadge" style="color:var(--text-dim);font-weight:400;"></span></span>
+      <span class="chev">▾</span>
+    </summary>
+    <div class="panel-body">
+      <ul class="name-list" id="nameList"></ul>
+      <div class="add-row">
+        <input id="newName" type="text" placeholder="Add a member…" maxlength="18" autocomplete="off" enterkeyhint="done" />
+        <button id="addBtn" aria-label="Add member">＋</button>
+      </div>
+      <p class="panel-note">Tap a name to edit it. Works for 2–8 members; names are saved on this device.</p>
+
+      <div class="opt-row">
+        <span>🔊 Spin sound</span>
+        <label class="toggle">
+          <input type="checkbox" id="soundToggle" />
+          <span class="track"></span>
+          <span class="knob"></span>
+        </label>
+      </div>
+    </div>
+  </details>
+
+  <footer>Red Leg night · pick your host · one bottle, one winner</footer>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Config / state ----------
+  var STORAGE_KEY = "spicedRumClub.names.v1";
+  var SOUND_KEY   = "spicedRumClub.sound.v1";
+  var DEFAULT_NAMES = ["Lewis", "Nim", "Phil"];
+  var MIN_NAMES = 2, MAX_NAMES = 8;
+
+  var names = loadNames();
+  var soundOn = localStorage.getItem(SOUND_KEY) === "1";
+  var rotation = 0;        // accumulated bottle rotation (deg)
+  var spinning = false;
+  var winnerIndex = -1;
+
+  // ---------- Elements ----------
+  var seatsEl   = document.getElementById("seats");
+  var bottleWrap= document.getElementById("bottleWrap");
+  var resultEl  = document.getElementById("result");
+  var statusEl  = document.getElementById("status");
+  var spinBtn   = document.getElementById("spinBtn");
+  var againBtn  = document.getElementById("againBtn");
+  var clearBtn  = document.getElementById("clearBtn");
+  var nameList  = document.getElementById("nameList");
+  var newName   = document.getElementById("newName");
+  var addBtn    = document.getElementById("addBtn");
+  var countBadge= document.getElementById("countBadge");
+  var soundToggle = document.getElementById("soundToggle");
+  var toastEl   = document.getElementById("toast");
+
+  // ---------- The bottle (Red Leg style, inline SVG) ----------
+  // Drawn pointing straight UP: the neck/cap is the pointer (0deg = up).
+  bottleWrap.innerHTML = [
+    '<svg viewBox="0 0 100 300" xmlns="http://www.w3.org/2000/svg" aria-label="Red Leg spiced rum bottle">',
+      '<defs>',
+        '<linearGradient id="glass" x1="0" y1="0" x2="1" y2="0">',
+          '<stop offset="0" stop-color="#6b3a12"/>',
+          '<stop offset="0.28" stop-color="#a55a1c"/>',
+          '<stop offset="0.5" stop-color="#e6912f"/>',
+          '<stop offset="0.72" stop-color="#a55a1c"/>',
+          '<stop offset="1" stop-color="#5f330f"/>',
+        '</linearGradient>',
+        '<linearGradient id="shine" x1="0" y1="0" x2="1" y2="0">',
+          '<stop offset="0" stop-color="#fff" stop-opacity="0"/>',
+          '<stop offset="0.5" stop-color="#fff" stop-opacity="0.55"/>',
+          '<stop offset="1" stop-color="#fff" stop-opacity="0"/>',
+        '</linearGradient>',
+        '<linearGradient id="cap" x1="0" y1="0" x2="0" y2="1">',
+          '<stop offset="0" stop-color="#3a2410"/>',
+          '<stop offset="1" stop-color="#1c1207"/>',
+        '</linearGradient>',
+      '</defs>',
+      // cap / cork (the pointer end)
+      '<rect x="38" y="4" width="24" height="26" rx="5" fill="url(#cap)"/>',
+      '<rect x="40" y="8" width="20" height="6" rx="3" fill="#5a3a18"/>',
+      // neck
+      '<path d="M42 30 h16 v34 q0 6 6 10 l4 4 v6 h-40 v-6 l4-4 q6-4 6-10 z" fill="url(#glass)"/>',
+      // body
+      '<rect x="16" y="88" width="68" height="200" rx="26" fill="url(#glass)"/>',
+      // glass shine strip
+      '<rect x="26" y="96" width="10" height="184" rx="5" fill="url(#shine)"/>',
+      // cream label
+      '<rect x="22" y="120" width="56" height="120" rx="8" fill="#f3e3c3" stroke="#d8bd8c" stroke-width="1.5"/>',
+      '<rect x="22" y="120" width="56" height="20" rx="8" fill="#c9401f"/>',
+      '<rect x="22" y="222" width="56" height="18" rx="8" fill="#c9401f"/>',
+      // "RED LEG" style lettering
+      '<text x="50" y="135" text-anchor="middle" font-family="Georgia, \'Times New Roman\', serif" font-size="12" font-weight="700" fill="#f3e3c3" letter-spacing="1">RED</text>',
+      '<text x="50" y="176" text-anchor="middle" font-family="Georgia, \'Times New Roman\', serif" font-size="18" font-weight="800" fill="#c9401f" letter-spacing="1">LEG</text>',
+      '<text x="50" y="196" text-anchor="middle" font-family="Georgia, serif" font-size="7" fill="#8a5a2a" letter-spacing="1">SPICED RUM</text>',
+      // little crab motif
+      '<g transform="translate(50,212)" fill="#c9401f">',
+        '<ellipse cx="0" cy="0" rx="7" ry="5"/>',
+        '<path d="M-7 -1 q-6 -4 -9 -1 M7 -1 q6 -4 9 -1" stroke="#c9401f" stroke-width="2" fill="none" stroke-linecap="round"/>',
+        '<path d="M-5 4 l-5 5 M0 5 l0 6 M5 4 l5 5" stroke="#c9401f" stroke-width="2" fill="none" stroke-linecap="round"/>',
+        '<circle cx="-2.5" cy="-1" r="1.2" fill="#f3e3c3"/>',
+        '<circle cx="2.5" cy="-1" r="1.2" fill="#f3e3c3"/>',
+      '</g>',
+      '<text x="50" y="236" text-anchor="middle" font-family="Georgia, serif" font-size="6" fill="#8a5a2a">EST. NIGHT ONE</text>',
+    '</svg>'
+  ].join("");
+
+  // ---------- Persistence ----------
+  function loadNames() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        var arr = JSON.parse(raw);
+        if (Array.isArray(arr)) {
+          arr = arr.filter(function (n) { return typeof n === "string" && n.trim(); })
+                   .map(function (n) { return n.trim(); });
+          if (arr.length) return arr.slice(0, MAX_NAMES);
+        }
+      }
+    } catch (e) { /* ignore corrupt storage */ }
+    return DEFAULT_NAMES.slice();
+  }
+  function saveNames() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(names)); } catch (e) {}
+  }
+
+  // ---------- Seat layout (auto-arrange around the circle) ----------
+  function seatAngle(i, n) { return (360 / n) * i; }   // 0deg = top, clockwise
+
+  function renderSeats() {
+    seatsEl.innerHTML = "";
+    var n = names.length;
+    // radius as % of stage half-size; nudge inward a touch as seats grow
+    var radiusPct = 42;
+    names.forEach(function (name, i) {
+      var ang = seatAngle(i, n);
+      var seat = document.createElement("div");
+      seat.className = "seat" + (i === winnerIndex ? " win" : "");
+      seat.dataset.index = i;
+      var mat = document.createElement("div");
+      mat.className = "mat";
+      mat.textContent = name;
+      // place: rotate then push out, then counter-rotate the mat so text stays upright
+      mat.style.transform =
+        "rotate(" + ang + "deg) translate(0, -" + radiusPct * 2.0 + "px) rotate(" + (-ang) + "deg) translate(-50%, -50%)";
+      // Note: translate order — outer rotate/translate positions the anchor; we re-center with the trailing translate.
+      seat.appendChild(mat);
+      seatsEl.appendChild(seat);
+    });
+    positionSeats();
+    countBadge.textContent = "(" + n + ")";
+  }
+
+  // Position seats precisely using pixel geometry of the stage for reliability.
+  function positionSeats() {
+    var stage = document.getElementById("stage");
+    var size = stage.clientWidth;
+    var half = size / 2;
+    var radius = half * 0.80; // distance of mats from centre
+    var n = names.length;
+    var seatNodes = seatsEl.children;
+    for (var i = 0; i < seatNodes.length; i++) {
+      var ang = seatAngle(i, n) - 90; // -90 so index 0 sits at the top
+      var rad = ang * Math.PI / 180;
+      var x = Math.cos(rad) * radius;
+      var y = Math.sin(rad) * radius;
+      var mat = seatNodes[i].firstChild;
+      mat.style.transform = "translate(calc(-50% + " + x.toFixed(1) + "px), calc(-50% + " + y.toFixed(1) + "px))";
+    }
+  }
+  window.addEventListener("resize", positionSeats);
+
+  // ---------- Names UI ----------
+  function renderNameList() {
+    nameList.innerHTML = "";
+    names.forEach(function (name, i) {
+      var li = document.createElement("li");
+      li.className = "name-item";
+
+      var input = document.createElement("input");
+      input.className = "name-edit";
+      input.type = "text";
+      input.value = name;
+      input.maxLength = 18;
+      input.setAttribute("aria-label", "Edit member name");
+      input.addEventListener("change", function () { editName(i, input.value); });
+      input.addEventListener("blur", function () { editName(i, input.value); });
+      input.addEventListener("keydown", function (e) { if (e.key === "Enter") input.blur(); });
+
+      var del = document.createElement("button");
+      del.className = "del-btn";
+      del.innerHTML = "🗑";
+      del.setAttribute("aria-label", "Remove " + name);
+      del.addEventListener("click", function () { removeName(i); });
+
+      li.appendChild(input);
+      li.appendChild(del);
+      nameList.appendChild(li);
+    });
+    countBadge.textContent = "(" + names.length + ")";
+  }
+
+  function refreshAll() {
+    renderNameList();
+    renderSeats();
+    updateControls();
+  }
+
+  function updateControls() {
+    var ok = names.length >= MIN_NAMES;
+    spinBtn.disabled = !ok || spinning;
+    againBtn.disabled = spinning;
+    if (!ok) {
+      statusEl.textContent = "Add at least " + MIN_NAMES + " members to spin.";
+    } else if (!spinning) {
+      statusEl.textContent = "";
+    }
+  }
+
+  function addName(raw) {
+    var name = (raw || "").trim();
+    if (!name) return;
+    if (names.length >= MAX_NAMES) { toast("Max " + MAX_NAMES + " members."); return; }
+    names.push(name.slice(0, 18));
+    saveNames();
+    clearResult();
+    refreshAll();
+  }
+
+  function editName(i, raw) {
+    var name = (raw || "").trim();
+    if (!name) {           // empty edit reverts
+      renderNameList();
+      return;
+    }
+    if (names[i] === name) return;
+    names[i] = name.slice(0, 18);
+    saveNames();
+    clearResult();
+    renderSeats();
+  }
+
+  function removeName(i) {
+    if (names.length <= MIN_NAMES) { toast("Need at least " + MIN_NAMES + " members."); return; }
+    names.splice(i, 1);
+    if (winnerIndex === i) winnerIndex = -1;
+    else if (winnerIndex > i) winnerIndex--;
+    saveNames();
+    clearResult();
+    refreshAll();
+  }
+
+  addBtn.addEventListener("click", function () { addName(newName.value); newName.value = ""; newName.focus(); });
+  newName.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { addName(newName.value); newName.value = ""; }
+  });
+
+  // ---------- Result ----------
+  function clearResult() {
+    winnerIndex = -1;
+    resultEl.textContent = "";
+    resultEl.classList.remove("show");
+    var wins = seatsEl.querySelectorAll(".seat.win");
+    for (var i = 0; i < wins.length; i++) wins[i].classList.remove("win");
+  }
+
+  function showWinner(idx) {
+    winnerIndex = idx;
+    var wins = seatsEl.querySelectorAll(".seat.win");
+    for (var i = 0; i < wins.length; i++) wins[i].classList.remove("win");
+    var seat = seatsEl.children[idx];
+    if (seat) seat.classList.add("win");
+    resultEl.innerHTML = '🥃 <span class="name">' + escapeHtml(names[idx]) + '</span> is hosting!';
+    resultEl.classList.remove("show");
+    void resultEl.offsetWidth; // restart animation
+    resultEl.classList.add("show");
+  }
+
+  // ---------- Spin logic (fair) ----------
+  function spin() {
+    if (spinning || names.length < MIN_NAMES) return;
+    spinning = true;
+    clearResult();
+    updateControls();
+    statusEl.textContent = "Spinning…";
+
+    var n = names.length;
+    // Fair pick: uniform random winner.
+    var winner = Math.floor(Math.random() * n);
+    if (winner >= n) winner = n - 1; // guard against Math.random() === 1 edge
+
+    // Target absolute angle the bottle must point to (0deg = up), matching seat layout.
+    var target = seatAngle(winner, n);
+    // Small jitter so it doesn't always stop dead-centre, but stays well inside the seat's slice.
+    var slice = 360 / n;
+    var jitter = (Math.random() - 0.5) * slice * 0.5;
+
+    var fullSpins = 5 + Math.floor(Math.random() * 4); // 5–8 turns
+    var current = rotation;
+    var currentMod = ((current % 360) + 360) % 360;
+    var desiredMod = ((target + jitter) % 360 + 360) % 360;
+    var delta = (desiredMod - currentMod + 360) % 360; // forward-only to target
+    var total = fullSpins * 360 + delta;
+    rotation = current + total;
+
+    var durationMs = 4200 + Math.floor(Math.random() * 900);
+
+    // Animate with requestAnimationFrame + easeOutCubic (works everywhere, offline).
+    var start = null;
+    var from = current;
+    startTicker(durationMs);
+    function frame(ts) {
+      if (start === null) start = ts;
+      var t = Math.min(1, (ts - start) / durationMs);
+      var eased = 1 - Math.pow(1 - t, 3);
+      bottleWrap.style.transform = "translate(-50%, -50%) rotate(" + (from + total * eased) + "deg)";
+      if (t < 1) {
+        requestAnimationFrame(frame);
+      } else {
+        bottleWrap.style.transform = "translate(-50%, -50%) rotate(" + rotation + "deg)";
+        finishSpin(winner);
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function finishSpin(winner) {
+    spinning = false;
+    stopTicker();
+    showWinner(winner);
+    statusEl.textContent = "";
+    updateControls();
+    if (soundOn) dingSound();
+    if (navigator.vibrate) { try { navigator.vibrate([30, 40, 90]); } catch (e) {} }
+  }
+
+  spinBtn.addEventListener("click", spin);
+  againBtn.addEventListener("click", spin);
+  clearBtn.addEventListener("click", clearResult);
+  // Tapping the table also spins (thumb-friendly).
+  document.getElementById("stage").addEventListener("click", function () { if (!spinning) spin(); });
+
+  // ---------- Optional sound (WebAudio, generated — no files, off by default) ----------
+  var audioCtx = null;
+  var tickTimer = null;
+  function ensureAudio() {
+    if (!soundOn) return null;
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+      return audioCtx;
+    } catch (e) { return null; }
+  }
+  function tick() {
+    var ctx = ensureAudio();
+    if (!ctx) return;
+    var o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = "square";
+    o.frequency.value = 900;
+    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+    g.gain.linearRampToValueAtTime(0.06, ctx.currentTime + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.05);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(); o.stop(ctx.currentTime + 0.06);
+  }
+  function dingSound() {
+    var ctx = ensureAudio();
+    if (!ctx) return;
+    [660, 880, 1320].forEach(function (f, i) {
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = "triangle";
+      o.frequency.value = f;
+      var t0 = ctx.currentTime + i * 0.02;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(0.12, t0 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(t0); o.stop(t0 + 0.55);
+    });
+  }
+  // Ticker slows down with the bottle (interval widens over the spin).
+  function startTicker(durationMs) {
+    if (!soundOn) return;
+    ensureAudio();
+    var startTs = performance.now();
+    function loop() {
+      var t = (performance.now() - startTs) / durationMs;
+      if (t >= 1) { tickTimer = null; return; }
+      tick();
+      var eased = 1 - Math.pow(1 - t, 3);       // matches motion
+      var gap = 45 + eased * 260;               // 45ms -> ~305ms
+      tickTimer = setTimeout(loop, gap);
+    }
+    loop();
+  }
+  function stopTicker() { if (tickTimer) { clearTimeout(tickTimer); tickTimer = null; } }
+
+  soundToggle.checked = soundOn;
+  soundToggle.addEventListener("change", function () {
+    soundOn = soundToggle.checked;
+    localStorage.setItem(SOUND_KEY, soundOn ? "1" : "0");
+    if (soundOn) { ensureAudio(); tick(); } // unlock audio + preview on user gesture
+  });
+
+  // ---------- Helpers ----------
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  var toastTimer = null;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 1800);
+  }
+
+  // ---------- Init ----------
+  refreshAll();
+})();
+</script>
+</body>
+</html>
